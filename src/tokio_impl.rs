@@ -11,7 +11,7 @@ impl<S: AsyncRead + AsyncWrite> Future for ConnectAsync<S> {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
+        self.inner.poll()
     }
 }
 
@@ -20,7 +20,7 @@ impl<S: AsyncRead + AsyncWrite> Future for AcceptAsync<S> {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
+        self.inner.poll()
     }
 }
 

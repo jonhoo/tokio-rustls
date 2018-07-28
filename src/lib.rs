@@ -1,5 +1,11 @@
 //! Asynchronous TLS/SSL streams for Tokio using [Rustls](https://github.com/ctz/rustls).
 
+#![cfg_attr(feature = "unstable-futures", feature(futures_api, pin, arbitrary_self_types, nll))]
+
+#[cfg(feature = "unstable-futures")]
+#[macro_use]
+extern crate futures;
+
 pub extern crate rustls;
 pub extern crate webpki;
 
@@ -33,11 +39,11 @@ pub trait ServerConfigExt: sealed::Sealed {
 
 /// Future returned from `ClientConfigExt::connect_async` which will resolve
 /// once the connection handshake has finished.
-pub struct ConnectAsync<S>(MidHandshake<S, ClientSession>);
+pub struct ConnectAsync<S> { inner: MidHandshake<S, ClientSession> }
 
 /// Future returned from `ServerConfigExt::accept_async` which will resolve
 /// once the accept handshake has finished.
-pub struct AcceptAsync<S>(MidHandshake<S, ServerSession>);
+pub struct AcceptAsync<S> { inner: MidHandshake<S, ServerSession> }
 
 impl sealed::Sealed for Arc<ClientConfig> {}
 
@@ -55,9 +61,11 @@ pub fn connect_async_with_session<S>(stream: S, session: ClientSession)
     -> ConnectAsync<S>
     where S: io::Read + io::Write
 {
-    ConnectAsync(MidHandshake {
-        inner: Some(TlsStream { session, io: stream, is_shutdown: false, eof: false })
-    })
+    ConnectAsync {
+        inner: MidHandshake {
+            inner: Some(TlsStream { session, io: stream, is_shutdown: false, eof: false })
+        }
+    }
 }
 
 impl sealed::Sealed for Arc<ServerConfig> {}
@@ -76,9 +84,11 @@ pub fn accept_async_with_session<S>(stream: S, session: ServerSession)
     -> AcceptAsync<S>
     where S: io::Read + io::Write
 {
-    AcceptAsync(MidHandshake {
-        inner: Some(TlsStream { session, io: stream, is_shutdown: false, eof: false })
-    })
+    AcceptAsync {
+        inner: MidHandshake {
+            inner: Some(TlsStream { session, io: stream, is_shutdown: false, eof: false })
+        }
+    }
 }
 
 
