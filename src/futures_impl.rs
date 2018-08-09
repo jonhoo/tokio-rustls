@@ -22,7 +22,7 @@ impl<S, C> MidHandshake<S, C> {
 
 impl<S: Unpin> Unpin for ConnectAsync<S> {}
 impl<S: Unpin> Unpin for AcceptAsync<S> {}
-impl<S: Unpin, C: Unpin> Unpin for MidHandshake<S, C> {}
+impl<S: Unpin, C: Unpin> Unpin for TlsStream<S, C> {}
 
 impl<S: AsyncRead + AsyncWrite> Future for ConnectAsync<S> {
     type Output = io::Result<TlsStream<S, ClientSession>>;
