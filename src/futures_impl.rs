@@ -1,10 +1,12 @@
+extern crate futures;
+
 use std::mem::PinMut;
 use std::marker::Unpin;
 use std::io::{ Read, Write };
-use futures::future::Future;
-use futures::task::{ Context, Poll };
-use futures::io::{ AsyncRead, AsyncWrite };
 use rustls::{ ClientSession, ServerSession };
+use self::futures::future::Future;
+use self::futures::task::{ Context, Poll };
+use self::futures::io::{ AsyncRead, AsyncWrite };
 use super::*;
 
 
@@ -20,6 +22,7 @@ impl<S, C> MidHandshake<S, C> {
     unsafe_unpinned!(inner: Option<TlsStream<S, C>>);
 }
 
+// TODO
 impl<S: Unpin> Unpin for ConnectAsync<S> {}
 impl<S: Unpin> Unpin for AcceptAsync<S> {}
 impl<S: Unpin, C: Unpin> Unpin for TlsStream<S, C> {}

@@ -2,9 +2,10 @@
 
 #![cfg_attr(feature = "unstable-futures", feature(futures_api, pin, arbitrary_self_types, nll))]
 
+
 #[cfg(feature = "unstable-futures")]
 #[macro_use]
-extern crate futures;
+extern crate pin_utils;
 
 pub extern crate rustls;
 pub extern crate webpki;

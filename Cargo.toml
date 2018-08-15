@@ -15,10 +15,11 @@ travis-ci = { repository = "quininer/tokio-rustls" }
 appveyor = { repository = "quininer/tokio-rustls" }
 
 [dependencies]
-futures-preview = { version = "0.3.0-alpha.2", optional = true }
-tokio = { version = "0.1.6", optional = true }
 rustls = "0.13"
 webpki = "0.18.1"
+futures-preview = { version = "0.3.0-alpha.3", optional = true }
+pin-utils = { version = "0.1.0-alpha.1", optional = true }
+tokio = { version = "0.1.6", optional = true }
 
 [dev-dependencies]
 tokio = "0.1.6"
@@ -27,5 +28,6 @@ tokio = "0.1.6"
 default = [ "tokio" ]
 unstable-futures = [
 	"futures-preview",
+	"pin-utils",
 #	"tokio/unstable-futures"
 ]
