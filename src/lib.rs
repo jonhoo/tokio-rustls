@@ -3,12 +3,14 @@
 #![cfg_attr(feature = "unstable-futures-support", feature(futures_api, pin, arbitrary_self_types, nll))]
 #![cfg_attr(feature = "nightly", feature(specialization))]
 
+pub extern crate rustls;
+pub extern crate webpki;
+
 #[cfg(feature = "unstable-futures-support")]
 #[macro_use]
 extern crate pin_utils;
-
-pub extern crate rustls;
-pub extern crate webpki;
+#[cfg(feature = "unstable-futures-support")]
+extern crate futures;
 
 #[cfg(feature = "tokio-support")]
 extern crate tokio;
@@ -19,8 +21,7 @@ extern crate bytes;
 #[cfg(feature = "tokio-support")]
 extern crate iovec;
 
-
-mod common;
+#[macro_use] mod common;
 #[cfg(feature = "tokio-support")] mod tokio_impl;
 #[cfg(feature = "unstable-futures-support")] mod futures_impl;
 

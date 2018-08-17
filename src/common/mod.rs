@@ -2,13 +2,22 @@
 #[cfg(feature = "tokio-support")]
 mod vecbuf;
 
+#[cfg(feature = "unstable-futures-support")]
+mod task_stream;
+
 use std::io::{ self, Read, Write };
 use rustls::Session;
+
 #[cfg(feature = "nightly")]
 use rustls::WriteV;
+
 #[cfg(feature = "nightly")]
 #[cfg(feature = "tokio-support")]
 use tokio::io::AsyncWrite;
+
+#[cfg(feature = "unstable-futures-support")]
+pub use self::task_stream::TaskStream;
+
 
 pub struct Stream<'a, S: 'a, IO: 'a> {
     session: &'a mut S,
@@ -17,57 +26,6 @@ pub struct Stream<'a, S: 'a, IO: 'a> {
 
 pub trait WriteTls<'a, S: Session, IO: Read + Write>: Read + Write {
     fn write_tls(&mut self) -> io::Result<usize>;
-}
-
-impl<'a, S: Session, IO: Read + Write> Stream<'a, S, IO> {
-    pub fn new(session: &'a mut S, io: &'a mut IO) -> Self {
-        Stream { session, io }
-    }
-
-    pub fn complete_io(&mut self) -> io::Result<(usize, usize)> {
-        // fork from https://github.com/ctz/rustls/blob/master/src/session.rs#L161
-
-        let until_handshaked = self.session.is_handshaking();
-        let mut eof = false;
-        let mut wrlen = 0;
-        let mut rdlen = 0;
-
-        loop {
-            while self.session.wants_write() {
-                wrlen += self.write_tls()?;
-            }
-
-            if !until_handshaked && wrlen > 0 {
-                return Ok((rdlen, wrlen));
-            }
-
-            if !eof && self.session.wants_read() {
-                match self.session.read_tls(self.io)? {
-                    0 => eof = true,
-                    n => rdlen += n
-                }
-            }
-
-            match self.session.process_new_packets() {
-                Ok(_) => {},
-                Err(e) => {
-                    // In case we have an alert to send describing this error,
-                    // try a last-gasp write -- but don't predate the primary
-                    // error.
-                    let _ignored = self.write_tls();
-
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, e));
-                },
-            };
-
-            match (eof, until_handshaked, self.session.is_handshaking()) {
-                (_, true, false) => return Ok((rdlen, wrlen)),
-                (_, false, _) => return Ok((rdlen, wrlen)),
-                (true, true, true) => return Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
-                (..) => ()
-            }
-        }
-    }
 }
 
 #[cfg(not(feature = "nightly"))]
@@ -139,5 +97,56 @@ impl<'a, S: Session, IO: Read + Write> io::Write for Stream<'a, S, IO> {
             self.complete_io()?;
         }
         Ok(())
+    }
+}
+
+impl<'a, S: Session, IO: Read + Write> Stream<'a, S, IO> {
+    pub fn new(session: &'a mut S, io: &'a mut IO) -> Self {
+        Stream { session, io }
+    }
+
+    pub fn complete_io(&mut self) -> io::Result<(usize, usize)> {
+        // fork from https://github.com/ctz/rustls/blob/master/src/session.rs#L161
+
+        let until_handshaked = self.session.is_handshaking();
+        let mut eof = false;
+        let mut wrlen = 0;
+        let mut rdlen = 0;
+
+        loop {
+            while self.session.wants_write() {
+                wrlen += self.write_tls()?;
+            }
+
+            if !until_handshaked && wrlen > 0 {
+                return Ok((rdlen, wrlen));
+            }
+
+            if !eof && self.session.wants_read() {
+                match self.session.read_tls(self.io)? {
+                    0 => eof = true,
+                    n => rdlen += n
+                }
+            }
+
+            match self.session.process_new_packets() {
+                Ok(_) => {},
+                Err(e) => {
+                    // In case we have an alert to send describing this error,
+                    // try a last-gasp write -- but don't predate the primary
+                    // error.
+                    let _ignored = self.write_tls();
+
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, e));
+                },
+            };
+
+            match (eof, until_handshaked, self.session.is_handshaking()) {
+                (_, true, false) => return Ok((rdlen, wrlen)),
+                (_, false, _) => return Ok((rdlen, wrlen)),
+                (true, true, true) => return Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
+                (..) => ()
+            }
+        }
     }
 }

@@ -1,6 +1,12 @@
+use std::io;
 use tokio::prelude::{ Future, Async, Poll };
 use tokio::io::{ AsyncRead, AsyncWrite };
-use super::*;
+use rustls::{ Session, ServerSession, ClientSession };
+use ::{
+    TlsStream, MidHandshake,
+    ConnectAsync, AcceptAsync,
+    common::Stream
+};
 
 
 impl<S: AsyncRead + AsyncWrite> Future for ConnectAsync<S> {
