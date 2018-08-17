@@ -7,18 +7,18 @@ pub extern crate rustls;
 pub extern crate webpki;
 
 #[cfg(feature = "unstable-futures-support")]
+extern crate futures;
+#[cfg(feature = "unstable-futures-support")]
 #[macro_use]
 extern crate pin_utils;
-#[cfg(feature = "unstable-futures-support")]
-extern crate futures;
 
 #[cfg(feature = "tokio-support")]
 extern crate tokio;
 #[cfg(feature = "nightly")]
 #[cfg(feature = "tokio-support")]
 extern crate bytes;
+
 #[cfg(feature = "nightly")]
-#[cfg(feature = "tokio-support")]
 extern crate iovec;
 
 #[macro_use] mod common;

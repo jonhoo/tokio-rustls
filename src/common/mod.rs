@@ -11,10 +11,6 @@ use rustls::Session;
 #[cfg(feature = "nightly")]
 use rustls::WriteV;
 
-#[cfg(feature = "nightly")]
-#[cfg(feature = "tokio-support")]
-use tokio::io::AsyncWrite;
-
 #[cfg(feature = "unstable-futures-support")]
 pub use self::task_stream::TaskStream;
 
@@ -44,8 +40,13 @@ impl<'a, S: Session, IO: Read + Write> WriteTls<'a, S, IO> for Stream<'a, S, IO>
 
 #[cfg(feature = "nightly")]
 #[cfg(feature = "tokio-support")]
-impl<'a, S: Session, IO: Read + AsyncWrite> WriteTls<'a, S, IO> for Stream<'a, S, IO> {
+impl<'a, S, IO> WriteTls<'a, S, IO> for Stream<'a, S, IO>
+where
+    S: Session,
+    IO: Read + ::tokio::io::AsyncWrite
+{
     fn write_tls(&mut self) -> io::Result<usize> {
+        use tokio::io::AsyncWrite;
         use tokio::prelude::Async;
         use self::vecbuf::VecBuf;
 
@@ -58,6 +59,47 @@ impl<'a, S: Session, IO: Read + AsyncWrite> WriteTls<'a, S, IO> for Stream<'a, S
                     Ok(Async::Ready(n)) => Ok(n),
                     Ok(Async::NotReady) => Err(io::ErrorKind::WouldBlock.into()),
                     Err(err) => Err(err)
+                }
+            }
+        }
+
+        let mut vecbuf = V(self.io);
+        self.session.writev_tls(&mut vecbuf)
+    }
+}
+
+#[cfg(feature = "nightly")]
+#[cfg(feature = "unstable-futures-support")]
+impl<'a, 'b, S, IO> WriteTls<'a, S, TaskStream<'a, 'b, IO>> for Stream<'a, S, TaskStream<'a, 'b, IO>>
+where
+    S: Session,
+    IO: ::futures::io::AsyncRead + ::futures::io::AsyncWrite + 'a
+{
+    fn write_tls(&mut self) -> io::Result<usize> {
+        use std::cmp;
+        use futures::task::Poll;
+        use futures::io::AsyncWrite;
+        use iovec::IoVec;
+
+        struct V<'x, 'a: 'x, 'b: 'a, IO: AsyncWrite + 'a>(&'x mut TaskStream<'a, 'b, IO>);
+
+        impl<'x, 'a, 'b, IO: AsyncWrite> WriteV for V<'x, 'a, 'b, IO> {
+            fn writev(&mut self, vbytes: &[&[u8]]) -> io::Result<usize> {
+                let TaskStream { io, task } = self.0;
+                let len = cmp::min(64, vbytes.len());
+
+                static DUMMY: &[u8] = &[0];
+                let iovec = <&IoVec>::from(DUMMY);
+                let mut vecbuf = [iovec; 64];
+
+                for i in 0..len {
+                    vecbuf[i] = vbytes[i].into();
+                }
+
+                match io.poll_vectored_write(task, &vecbuf) {
+                    Poll::Ready(Ok(n)) => Ok(n),
+                    Poll::Pending => Err(io::ErrorKind::WouldBlock.into()),
+                    Poll::Ready(Err(e)) => Err(e)
                 }
             }
         }
