@@ -1,17 +1,28 @@
 //! Asynchronous TLS/SSL streams for Tokio using [Rustls](https://github.com/ctz/rustls).
 
-#![cfg_attr(feature = "unstable-futures", feature(futures_api, pin, arbitrary_self_types, nll))]
+#![cfg_attr(feature = "unstable-futures-support", feature(futures_api, pin, arbitrary_self_types, nll))]
+#![cfg_attr(feature = "nightly", feature(specialization))]
 
-
-#[cfg(feature = "unstable-futures")]
+#[cfg(feature = "unstable-futures-support")]
 #[macro_use]
 extern crate pin_utils;
 
 pub extern crate rustls;
 pub extern crate webpki;
 
-#[cfg(feature = "tokio")] mod tokio_impl;
-#[cfg(feature = "unstable-futures")] mod futures_impl;
+#[cfg(feature = "tokio-support")]
+extern crate tokio;
+#[cfg(feature = "nightly")]
+#[cfg(feature = "tokio-support")]
+extern crate bytes;
+#[cfg(feature = "nightly")]
+#[cfg(feature = "tokio-support")]
+extern crate iovec;
+
+
+mod common;
+#[cfg(feature = "tokio-support")] mod tokio_impl;
+#[cfg(feature = "unstable-futures-support")] mod futures_impl;
 
 use std::io;
 use std::sync::Arc;
@@ -19,8 +30,8 @@ use webpki::DNSNameRef;
 use rustls::{
     Session, ClientSession, ServerSession,
     ClientConfig, ServerConfig,
-    Stream
 };
+use common::Stream;
 
 
 /// Extension trait for the `Arc<ClientConfig>` type in the `rustls` crate.
