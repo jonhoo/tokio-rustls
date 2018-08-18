@@ -38,15 +38,13 @@ use common::Stream;
 /// Extension trait for the `Arc<ClientConfig>` type in the `rustls` crate.
 pub trait ClientConfigExt: sealed::Sealed {
     fn connect_async<S>(&self, domain: DNSNameRef, stream: S)
-        -> ConnectAsync<S>
-        where S: io::Read + io::Write;
+        -> ConnectAsync<S>;
 }
 
 /// Extension trait for the `Arc<ServerConfig>` type in the `rustls` crate.
 pub trait ServerConfigExt: sealed::Sealed {
     fn accept_async<S>(&self, stream: S)
-        -> AcceptAsync<S>
-        where S: io::Read + io::Write;
+        -> AcceptAsync<S>;
 }
 
 
@@ -63,7 +61,6 @@ impl sealed::Sealed for Arc<ClientConfig> {}
 impl ClientConfigExt for Arc<ClientConfig> {
     fn connect_async<S>(&self, domain: DNSNameRef, stream: S)
         -> ConnectAsync<S>
-        where S: io::Read + io::Write
     {
         connect_async_with_session(stream, ClientSession::new(self, domain))
     }
@@ -72,7 +69,6 @@ impl ClientConfigExt for Arc<ClientConfig> {
 #[inline]
 pub fn connect_async_with_session<S>(stream: S, session: ClientSession)
     -> ConnectAsync<S>
-    where S: io::Read + io::Write
 {
     ConnectAsync {
         inner: MidHandshake {
@@ -86,7 +82,6 @@ impl sealed::Sealed for Arc<ServerConfig> {}
 impl ServerConfigExt for Arc<ServerConfig> {
     fn accept_async<S>(&self, stream: S)
         -> AcceptAsync<S>
-        where S: io::Read + io::Write
     {
         accept_async_with_session(stream, ServerSession::new(self))
     }
@@ -95,7 +90,6 @@ impl ServerConfigExt for Arc<ServerConfig> {
 #[inline]
 pub fn accept_async_with_session<S>(stream: S, session: ServerSession)
     -> AcceptAsync<S>
-    where S: io::Read + io::Write
 {
     AcceptAsync {
         inner: MidHandshake {
