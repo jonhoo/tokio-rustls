@@ -96,7 +96,7 @@ where
                     vecbuf[i] = vbytes[i].into();
                 }
 
-                match io.poll_vectored_write(task, &vecbuf) {
+                match io.poll_vectored_write(task, &vecbuf[..len]) {
                     Poll::Ready(Ok(n)) => Ok(n),
                     Poll::Pending => Err(io::ErrorKind::WouldBlock.into()),
                     Poll::Ready(Err(e)) => Err(e)
