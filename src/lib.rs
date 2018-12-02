@@ -8,9 +8,6 @@ pub extern crate webpki;
 
 #[cfg(feature = "unstable-futures-support")]
 extern crate futures;
-#[cfg(feature = "unstable-futures-support")]
-#[macro_use]
-extern crate pin_utils;
 
 #[cfg(feature = "tokio-support")]
 extern crate tokio;

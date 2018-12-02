@@ -1,9 +1,9 @@
-use std::mem::PinMut;
+use std::pin::Pin;
 use std::marker::Unpin;
 use std::io::{ self, Read, Write };
 use rustls::{ Session, ClientSession, ServerSession };
 use futures::future::Future;
-use futures::task::{ Context, Poll };
+use futures::task::{ LocalWaker, Poll };
 use futures::io::{ AsyncRead, AsyncWrite, Initializer };
 use ::{
     TlsStream, MidHandshake,
@@ -22,51 +22,35 @@ macro_rules! a {
     };
 }
 
-impl<S> ConnectAsync<S> {
-    unsafe_pinned!(inner: MidHandshake<S, ClientSession>);
-}
 
-impl<S> AcceptAsync<S> {
-    unsafe_pinned!(inner: MidHandshake<S, ServerSession>);
-}
-
-impl<S, C> MidHandshake<S, C> {
-    unsafe_unpinned!(inner: Option<TlsStream<S, C>>);
-}
-
-// TODO
-impl<S: Unpin> Unpin for ConnectAsync<S> {}
-impl<S: Unpin> Unpin for AcceptAsync<S> {}
-impl<S: Unpin, C: Unpin> Unpin for TlsStream<S, C> {}
-
-impl<S: AsyncRead + AsyncWrite> Future for ConnectAsync<S> {
+impl<S: AsyncRead + AsyncWrite + Unpin> Future for ConnectAsync<S> {
     type Output = io::Result<TlsStream<S, ClientSession>>;
 
-    fn poll(mut self: PinMut<Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        self.inner().poll(ctx)
+    fn poll(mut self: Pin<&mut Self>, lw: &LocalWaker) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner).poll(lw)
     }
 }
 
-impl<S: AsyncRead + AsyncWrite> Future for AcceptAsync<S> {
+impl<S: AsyncRead + AsyncWrite + Unpin> Future for AcceptAsync<S> {
     type Output = io::Result<TlsStream<S, ServerSession>>;
 
-    fn poll(mut self: PinMut<Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        self.inner().poll(ctx)
+    fn poll(mut self: Pin<&mut Self>, lw: &LocalWaker) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner).poll(lw)
     }
 }
 
 impl<S, C> Future for MidHandshake<S, C>
-    where S: AsyncRead + AsyncWrite, C: Session
+    where S: AsyncRead + AsyncWrite + Unpin, C: Session + Unpin
 {
     type Output = io::Result<TlsStream<S, C>>;
 
-    fn poll(mut self: PinMut<Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let state = self.inner();
+    fn poll(self: Pin<&mut Self>, lw: &LocalWaker) -> Poll<Self::Output> {
+        let state = &mut Pin::get_mut(self).inner;
         let stream = state.as_mut().unwrap();
 
         if stream.session.is_handshaking() {
             let (io, session) = stream.get_mut();
-            let mut taskio = TaskStream { io, task: ctx };
+            let mut taskio = TaskStream { io, task: lw };
             let mut stream = Stream::new(session, &mut taskio);
 
             match stream.complete_io() {
@@ -89,13 +73,13 @@ impl<S, C> AsyncRead for TlsStream<S, C>
         Initializer::nop()
     }
 
-    fn poll_read(&mut self, ctx: &mut Context, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+    fn poll_read(&mut self, lw: &LocalWaker, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         if self.eof {
             return Poll::Ready(Ok(0));
         }
 
         let (io, session) = self.get_mut();
-        let mut taskio = TaskStream { io, task: ctx };
+        let mut taskio = TaskStream { io, task: lw };
         let mut stream = Stream::new(session, &mut taskio);
 
         match stream.read(buf) {
@@ -118,17 +102,17 @@ impl<S, C> AsyncWrite for TlsStream<S, C>
         S: AsyncRead + AsyncWrite,
         C: Session
 {
-    fn poll_write(&mut self, ctx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(&mut self, lw: &LocalWaker, buf: &[u8]) -> Poll<io::Result<usize>> {
         let (io, session) = self.get_mut();
-        let mut taskio = TaskStream { io, task: ctx };
+        let mut taskio = TaskStream { io, task: lw };
         let mut stream = Stream::new(session, &mut taskio);
 
         a!(< stream.write(buf))
     }
 
-    fn poll_flush(&mut self, ctx: &mut Context) -> Poll<io::Result<()>> {
+    fn poll_flush(&mut self, lw: &LocalWaker) -> Poll<io::Result<()>> {
         let (io, session) = self.get_mut();
-        let mut taskio = TaskStream { io, task: ctx };
+        let mut taskio = TaskStream { io, task: lw };
         let mut stream = Stream::new(session, &mut taskio);
 
         match stream.flush() {
@@ -140,14 +124,14 @@ impl<S, C> AsyncWrite for TlsStream<S, C>
         a!(< taskio.flush())
     }
 
-    fn poll_close(&mut self, ctx: &mut Context) -> Poll<io::Result<()>> {
+    fn poll_close(&mut self, lw: &LocalWaker) -> Poll<io::Result<()>> {
         if !self.is_shutdown {
             self.session.send_close_notify();
             self.is_shutdown = true;
         }
 
         let (io, session) = self.get_mut();
-        let mut taskio = TaskStream { io, task: ctx };
+        let mut taskio = TaskStream { io, task: lw };
 
         match session.complete_io(&mut taskio) {
             Ok(_) => (),
@@ -155,6 +139,6 @@ impl<S, C> AsyncWrite for TlsStream<S, C>
             Err(e) => return Poll::Ready(Err(e))
         }
 
-        self.io.poll_close(ctx)
+        self.io.poll_close(lw)
     }
 }

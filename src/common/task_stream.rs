@@ -1,6 +1,6 @@
 use std::io;
 use futures::io::{ AsyncRead, AsyncWrite };
-use futures::task::{ Context, Poll };
+use futures::task::{ LocalWaker, Poll };
 
 
 macro_rules! a {
@@ -13,12 +13,12 @@ macro_rules! a {
     };
 }
 
-pub struct TaskStream<'a, 'b: 'a, S: 'a> {
+pub struct TaskStream<'a, S: 'a> {
     pub io: &'a mut S,
-    pub task: &'a mut Context<'b>
+    pub task: &'a LocalWaker
 }
 
-impl<'a, 'b, S> io::Read for TaskStream<'a, 'b, S>
+impl<'a, S> io::Read for TaskStream<'a, S>
     where S: AsyncRead + AsyncWrite
 {
     #[inline]
@@ -27,7 +27,7 @@ impl<'a, 'b, S> io::Read for TaskStream<'a, 'b, S>
     }
 }
 
-impl<'a, 'b, S> io::Write for TaskStream<'a, 'b, S>
+impl<'a, S> io::Write for TaskStream<'a, S>
     where S: AsyncRead + AsyncWrite
 {
     #[inline]
