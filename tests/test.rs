@@ -12,7 +12,7 @@ use futures::task::SpawnExt;
 use romio::tcp::{ TcpListener, TcpStream };
 use rustls::{ ServerConfig, ClientConfig };
 use rustls::internal::pemfile::{ certs, rsa_private_keys };
-use tokio_rustls::{ TlsConnector, TlsAcceptor };
+use futures_rustls::{ TlsConnector, TlsAcceptor };
 
 const CERT: &str = include_str!("end.cert");
 const CHAIN: &str = include_str!("end.chain");

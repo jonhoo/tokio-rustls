@@ -162,7 +162,7 @@ impl<'a, IO: AsyncRead + AsyncWrite + Unpin, S: Session> WriteTls<IO, S> for Str
         impl<'a, 'b, IO: AsyncWrite + Unpin> WriteV for Writer<'a, 'b, IO> {
             fn writev(&mut self, vbytes: &[&[u8]]) -> io::Result<usize> {
                 let vbytes = vbytes
-                    .into_iter()
+                    .iter()
                     .map(|v| IoSlice::new(v))
                     .collect::<SmallVec<[IoSlice<'_>; 64]>>();
 
